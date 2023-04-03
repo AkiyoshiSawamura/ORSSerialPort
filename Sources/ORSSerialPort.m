@@ -32,6 +32,7 @@
 #import <sys/param.h>
 #import <sys/filio.h>
 #import <sys/ioctl.h>
+#import <IOKit/usb/USBSpec.h>
 
 #if !__has_feature(objc_arc)
 #error ORSSerialPort.m must be compiled with ARC. Either turn on ARC for the project or set the -fobjc-arc flag for ORSSerialPort.m in the Build Phases for this target
@@ -87,6 +88,10 @@ static __strong NSMutableArray *allSerialPorts;
 @property (nonatomic) dispatch_source_t pendingRequestTimeoutTimer;
 @property (nonatomic) dispatch_queue_t requestHandlingQueue;
 #endif
+
+@property (nonatomic, readwrite) int vendorID;
+@property (nonatomic, readwrite) int productID;
+
 
 @end
 
@@ -191,6 +196,8 @@ static __strong NSMutableArray *allSerialPorts;
 		self.usesDCDOutputFlowControl = NO;
 		self.RTS = NO;
 		self.DTR = NO;
+        self.vendorID = [self VendorID];
+        self.productID = [self ProductID];
 	}
 	
 	[[self class] addSerialPort:self];
@@ -1031,6 +1038,58 @@ static __strong NSMutableArray *allSerialPorts;
 		ORS_GCD_RETAIN(requestHandlingQueue);
 		_requestHandlingQueue = requestHandlingQueue;
 	}
+}
+
+- (int)VendorID
+{
+    // Variable declaration
+    int vid;
+    CFTypeRef cf_vendor;
+    
+    vid = -1;
+    // Search properties among parents of the current port
+    cf_vendor = IORegistryEntrySearchCFProperty(_IOKitDevice, kIOServicePlane,
+                                                CFSTR(kUSBVendorID),
+                                                kCFAllocatorDefault,
+                                                kIORegistryIterateRecursively | kIORegistryIterateParents);
+    
+    // Decode & print VID
+    if (cf_vendor && CFNumberGetValue(cf_vendor , kCFNumberIntType, &vid))
+    {
+        printf("USB VID: %04X\n", vid);
+    }
+    
+    // Release CFTypeRef
+    if (cf_vendor)  CFRelease(cf_vendor);
+    
+    // Return vendor id
+    return vid;
+}
+
+- (int)ProductID
+{
+    // Variable declaration
+    int pid;
+    CFTypeRef cf_product;
+    
+    pid = -1;
+    // Search properties among parents of the current port
+    cf_product = IORegistryEntrySearchCFProperty(_IOKitDevice, kIOServicePlane,
+                                                CFSTR(kUSBProductID),
+                                                kCFAllocatorDefault,
+                                                kIORegistryIterateRecursively | kIORegistryIterateParents);
+    
+    // Decode & print PID
+    if (cf_product && CFNumberGetValue(cf_product , kCFNumberIntType, &pid))
+    {
+        printf("USB PID: %04X\n", pid);
+    }
+    
+    // Release CFTypeRef
+    if (cf_product)  CFRelease(cf_product);
+    
+    // Return product id
+    return pid;
 }
 
 @end
